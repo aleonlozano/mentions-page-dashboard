@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Monitor de menciones - {{ page_name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind vía CDN para desarrollo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-white text-[#1F1233]">
+    <header class="border-b border-[#E2E8F0] px-6 py-4 flex items-center justify-between bg-white">
+      <div>
+        <h1 class="text-2xl font-semibold flex items-center gap-2">
+          <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FFC93C] text-[#140B2E] text-sm font-bold">C</span>
+          <span>
+            Monitor de menciones –
+            <span class="text-[#4FC3F7]">{{ page_name }}</span>
+          </span>
+        </h1>
+        <p class="text-sm text-[#4A5568]">
+          Publicaciones que etiquetan o mencionan tu página en redes sociales.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        {% if ig_profile %}
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              {% if ig_profile.profile_picture_url %}
+                <img
+                  src="{{ ig_profile.profile_picture_url }}"
+                  alt="Foto de perfil de Instagram"
+                  class="h-8 w-8 rounded-full border border-[#E2E8F0]"
+                />
+              {% endif %}
+              <div class="text-right">
+                <p class="text-xs text-[#4A5568]">Instagram conectado</p>
+                <p class="text-xs font-semibold text-[#1F1233]">
+                  @{{ ig_profile.username }}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onclick="window.location.href='{% url 'disconnect_instagram' %}'"
+              class="px-3 py-1.5 rounded-full text-xs font-medium border border-[#E2E8F0] text-[#4A3B78] hover:bg-[#EDF2F7]"
+            >
+              Desconectar
+            </button>
+          </div>
+        {% else %}
+          <button
+            type="button"
+            onclick="window.location.href='{% url 'connect_instagram' %}'"
+            class="px-3 py-1.5 rounded-full text-xs font-medium bg-[#4FC3F7] text-white hover:bg-[#039BE5] shadow-sm"
+          >
+            Conectar Instagram
+          </button>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="px-6 py-6 space-y-6">
+      <!-- Resumen -->
+      <section id="summary" class="grid gap-4 md:grid-cols-4">
+        <div class="rounded-2xl bg-white border-l-4 border-[#FFC93C] px-4 py-3 shadow-sm">
+          <p class="text-xs text-[#718096]">Menciones totales</p>
+          <p id="summary-total" class="mt-1 text-2xl font-semibold text-[#1F1233]">–</p>
+        </div>
+        <div class="rounded-2xl bg-white border-l-4 border-[#31C48D] px-4 py-3 shadow-sm">
+          <p class="text-xs text-[#718096]">Positivas</p>
+          <p id="summary-positive" class="mt-1 text-2xl font-semibold text-[#31C48D]">–</p>
+        </div>
+        <div class="rounded-2xl bg-white border-l-4 border-[#A0AEC0] px-4 py-3 shadow-sm">
+          <p class="text-xs text-[#718096]">Neutrales</p>
+          <p id="summary-neutral" class="mt-1 text-2xl font-semibold text-[#1F1233]">–</p>
+        </div>
+        <div class="rounded-2xl bg-white border-l-4 border-[#F05252] px-4 py-3 shadow-sm">
+          <p class="text-xs text-[#718096]">Negativas</p>
+          <p id="summary-negative" class="mt-1 text-2xl font-semibold text-[#F05252]">–</p>
+        </div>
+      </section>
+
+      <!-- Perfil de Instagram conectado / aviso -->
+      {% if ig_profile %}
+      <section class="mt-1">
+        <div class="rounded-2xl border border-[#E2E8F0] bg-white p-4 flex items-center gap-4">
+          {% if ig_profile.profile_picture_url %}
+            <img
+              src="{{ ig_profile.profile_picture_url }}"
+              alt="Foto de perfil de Instagram"
+              class="h-12 w-12 rounded-full border border-[#E2E8F0]"
+            />
+          {% endif %}
+          <div>
+            <p class="text-xs text-[#718096]">Cuenta de Instagram conectada</p>
+            <p class="text-sm font-semibold text-[#1F1233]">
+              @{{ ig_profile.username }}
+            </p>
+            {% if ig_profile.biography %}
+            <p class="text-xs text-[#4A5568] mt-1">
+              {{ ig_profile.biography }}
+            </p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+      {% else %}
+      <section class="mt-1">
+        <div class="rounded-2xl border border-dashed border-[#FFC93C] bg-[#FFFBEB] p-4 text-xs text-[#4A3B78]">
+          Para completar el panel con datos de Instagram, conecta una cuenta profesional.
+          Haz clic en <strong>“Conectar Instagram”</strong> en la parte superior derecha.
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- Filtros -->
+      <section class="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+        <div class="inline-flex rounded-full bg-[#F7FAFC] p-1 border border-[#FFC93C]">
+          <button data-filter="all" class="filter-btn px-3 py-1.5 text-xs rounded-full bg-[#5B2C96] text-white shadow-sm">
+            Todas
+          </button>
+          <button data-filter="positive" class="filter-btn px-3 py-1.5 text-xs rounded-full bg-[#E2E8F0] text-[#4A3B78]">
+            Positivas
+          </button>
+          <button data-filter="neutral" class="filter-btn px-3 py-1.5 text-xs rounded-full bg-[#E2E8F0] text-[#4A3B78]">
+            Neutrales
+          </button>
+          <button data-filter="negative" class="filter-btn px-3 py-1.5 text-xs rounded-full bg-[#E2E8F0] text-[#4A3B78]">
+            Negativas
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <div class="relative w-full md:w-80">
+            <input
+              id="search-input"
+              type="text"
+              class="w-full rounded-full bg-white border border-[#4FC3F7] px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC93C] text-[#1F1233] placeholder:text-[#A0AEC0]"
+              placeholder="Buscar por texto o página..."
+            />
+          </div>
+
+          <select
+            id="network-filter"
+            class="rounded-full border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#4A3B78] focus:outline-none focus:ring-2 focus:ring-[#FFC93C]"
+          >
+            <option value="all">Todas las redes</option>
+            <option value="facebook">Solo Facebook</option>
+            <option value="instagram">Solo Instagram</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Tabla -->
+      <section class="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
+        <div class="max-h-[60vh] overflow-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-[#F3F0FF] text-[#4A3B78] sticky top-0 z-10">
+              <tr>
+                <th data-sort="created_time" class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide cursor-pointer select-none">
+                  Fecha
+                  <span class="sort-indicator" data-field="created_time"></span>
+                </th>
+                <th data-sort="from_name" class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide cursor-pointer select-none">
+                  Origen
+                  <span class="sort-indicator" data-field="from_name"></span>
+                </th>
+                <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide">
+                  Texto
+                </th>
+                <th data-sort="sentiment" class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide cursor-pointer select-none">
+                  Sentimiento
+                  <span class="sort-indicator" data-field="sentiment"></span>
+                </th>
+                <th data-sort="impact" class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide cursor-pointer select-none">
+                  Impacto estimado
+                  <span class="sort-indicator" data-field="impact"></span>
+                </th>
+                <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide">Ver</th>
+              </tr>
+            </thead>
+            <tbody id="mentions-body" class="divide-y divide-[#402060]">
+              <tr id="loading-row">
+                <td colspan="6" class="px-4 py-8 text-center text-[#718096]">
+                  Cargando menciones...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Paginación -->
+      <section id="pagination" class="mt-4 flex items-center justify-between text-xs text-[#D1C4E9]"></section>
+    </main>
+
+    <script>
+        let currentNetwork = "all";
+      const SENTIMENT_CLASSES = {
+        positive: "bg-[#E6FFFA] text-[#31C48D]",
+        neutral: "bg-[#EDF2F7] text-[#4A5568]",
+        negative: "bg-[#FFF5F5] text-[#F05252]",
+      };
+
+      const IMPACT_CLASSES = {
+        bajo: "bg-[#EDF2F7] text-[#4A5568]",
+        medio: "bg-[#FFFBEA] text-[#D69E2E]",
+        alto: "bg-[#E3F8FF] text-[#3182CE]",
+      };
+
+      let currentFilter = "all";
+      let currentSearch = "";
+      let currentSortField = "created_time"; // campo por defecto
+      let currentSortDirection = "desc"; // desc para ver primero lo más reciente
+      let currentPage = 1;
+      const DEFAULT_PAGE_SIZE = 10;
+      let pageSize = DEFAULT_PAGE_SIZE;
+      let showAll = false;
+
+      function highlightPageName(text, pageName) {
+        if (!text) return "";
+        const regex = new RegExp("(" + pageName + ")", "gi");
+        return text.replace(
+          regex,
+          '<mark class="bg-[#FFC93C]/30 text-[#4FC3F7] rounded px-0.5">$1</mark>'
+        );
+      }
+
+      function renderSummary(summary) {
+        document.getElementById("summary-total").textContent =
+          summary.total_mentions ?? 0;
+        document.getElementById("summary-positive").textContent =
+          summary.positive ?? 0;
+        document.getElementById("summary-neutral").textContent =
+          summary.neutral ?? 0;
+        document.getElementById("summary-negative").textContent =
+          summary.negative ?? 0;
+      }
+
+      function renderPagination(pagination) {
+        const container = document.getElementById("pagination");
+        if (!container) return;
+
+        const totalPages = pagination.total_pages || 1;
+        const totalItems = pagination.total_items || 0;
+        const page = pagination.page || 1;
+
+        container.innerHTML = `
+          <div class="flex items-center gap-2">
+            <button
+              id="prev-page"
+              class="px-3 py-1 rounded-full border border-[#4FC3F7] text-[#1F1233] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#4FC3F7]/10"
+              ${page === 1 ? "disabled" : ""}
+            >
+              Anterior
+            </button>
+            <span>Página ${page} de ${totalPages}</span>
+            <button
+              id="next-page"
+              class="px-3 py-1 rounded-full border border-[#4FC3F7] text-[#1F1233] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#4FC3F7]/10"
+              ${page === totalPages ? "disabled" : ""}
+            >
+              Siguiente
+            </button>
+            <button
+              id="toggle-all"
+              data-total-items="${totalItems}"
+              class="px-3 py-1 rounded-full border border-[#A0AEC0] text-[#4A5568] hover:bg-[#EDF2F7]"
+            >
+              ${showAll ? "Ver paginado" : "Ver todos"}
+            </button>
+          </div>
+          <div>
+            Total: ${totalItems} menciones
+          </div>
+        `;
+
+        const prevBtn = document.getElementById("prev-page");
+        const nextBtn = document.getElementById("next-page");
+        const toggleAllBtn = document.getElementById("toggle-all");
+
+        if (prevBtn) {
+          prevBtn.addEventListener("click", () => {
+            if (page > 1) {
+              currentPage = page - 1;
+              loadAndRender();
+            }
+          });
+        }
+
+        if (nextBtn) {
+          nextBtn.addEventListener("click", () => {
+            if (page < totalPages) {
+              currentPage = page + 1;
+              loadAndRender();
+            }
+          });
+        }
+
+        if (toggleAllBtn) {
+          toggleAllBtn.addEventListener("click", () => {
+            const total = parseInt(toggleAllBtn.dataset.totalItems || "0", 10) || DEFAULT_PAGE_SIZE;
+            if (showAll) {
+              // Volver a modo paginado
+              showAll = false;
+              pageSize = DEFAULT_PAGE_SIZE;
+              currentPage = 1;
+            } else {
+              // Ver todos en una sola página
+              showAll = true;
+              pageSize = total;
+              currentPage = 1;
+            }
+            loadAndRender();
+          });
+        }
+      }
+
+      function renderTable(mentions, pagination) {
+        const tbody = document.getElementById("mentions-body");
+        tbody.innerHTML = "";
+
+        if (!mentions || mentions.length === 0) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td colspan="6" class="px-4 py-8 text-center text-[#718096]">No hay menciones que coincidan con los filtros.</td>';
+          tbody.appendChild(tr);
+          renderPagination(
+            pagination || { page: 1, total_pages: 1, total_items: 0 }
+          );
+          return;
+        }
+
+        mentions.forEach((m) => {
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-[#F7FAFC]";
+
+          const date = new Date(m.created_time);
+          const dateStr = date.toLocaleString("es-CO", {
+            dateStyle: "short",
+            timeStyle: "short",
+          });
+
+          const sentimentClass =
+            SENTIMENT_CLASSES[m.sentiment.label] || SENTIMENT_CLASSES.neutral;
+          const impactLevel = m.stats?.impact_level || "bajo";
+          const impactClass = IMPACT_CLASSES[impactLevel] || IMPACT_CLASSES.bajo;
+
+          tr.innerHTML = `
+            <td class="px-4 py-3 align-top text-[#1F1233]">${dateStr}</td>
+            <td class="px-4 py-3 align-top text-[#1F1233]">
+              <div class="flex items-center gap-2">
+                <span class="font-medium">${m.from_name || ""}</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                  m.network === "instagram"
+                    ? "bg-pink-100 text-pink-600"
+                    : "bg-blue-100 text-blue-600"
+                }">
+                  ${m.network === "instagram" ? "IG" : "FB"}
+                </span>
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-[#1F1233] max-w-md">
+              <p class="line-clamp-3 text-[#1F1233]">
+                ${highlightPageName(
+                  m.message || "",
+                  "{{ page_name|escapejs }}"
+                )}
+              </p>
+            </td>
+            <td class="px-4 py-3 align-top text-[#1F1233]">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${sentimentClass}">
+                ${
+                  m.sentiment.label === "positive"
+                    ? "Positiva"
+                    : m.sentiment.label === "negative"
+                    ? "Negativa"
+                    : "Neutral"
+                }
+              </span>
+            </td>
+            <td class="px-4 py-3 align-top text-[#1F1233]">
+              <div class="flex flex-col gap-1 text-xs">
+                <span class="inline-flex items-center px-2 py-1 rounded-full font-medium ${impactClass}">
+                  ${impactLevel.toUpperCase()}
+                </span>
+                <span class="text-[#A0AEC0]">
+                  Score: ${
+                    m.stats.impact_score && m.stats.impact_score.toFixed
+                      ? m.stats.impact_score.toFixed(2)
+                      : m.stats.impact_score
+                  }
+                </span>
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-[#1F1233]">
+              <a href="${m.permalink_url}" target="_blank" rel="noreferrer" class="text-xs text-[#4FC3F7] hover:underline">Abrir</a>
+            </td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+
+        renderPagination(pagination);
+        updateSortIndicators();
+      }
+
+      function setFilter(filter) {
+        currentFilter = filter;
+        document.querySelectorAll(".filter-btn").forEach((btn) => {
+          if (btn.dataset.filter === filter) {
+            btn.classList.add("bg-[#5B2C96]", "text-white", "shadow-sm");
+            btn.classList.remove("bg-[#E2E8F0]", "text-[#4A3B78]");
+          } else {
+            btn.classList.remove("bg-[#5B2C96]", "text-white", "shadow-sm");
+            btn.classList.add("bg-[#E2E8F0]", "text-[#4A3B78]");
+          }
+        });
+      }
+
+      function updateSortIndicators() {
+        document.querySelectorAll(".sort-indicator").forEach((el) => {
+          const field = el.getAttribute("data-field");
+          if (field === currentSortField) {
+            el.textContent = currentSortDirection === "asc" ? " ▲" : " ▼";
+          } else {
+            el.textContent = "";
+          }
+        });
+      }
+
+      function loadAndRender() {
+        const tbody = document.getElementById("mentions-body");
+        if (tbody) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="px-4 py-8 text-center text-[#718096]">Cargando menciones...</td></tr>';
+        }
+
+        const params = new URLSearchParams();
+        params.set("page", currentPage);
+        params.set("page_size", pageSize);
+        params.set("sort_field", currentSortField);
+        params.set("sort_dir", currentSortDirection);
+        if (currentFilter !== "all") {
+          params.set("sentiment", currentFilter);
+        }
+        if (currentSearch) {
+          params.set("search", currentSearch);
+        }
+        if (currentNetwork !== "all") {
+          params.set("network", currentNetwork);
+        }
+
+        fetch(`/api/mentions/?${params.toString()}`)
+          .then((r) => r.json())
+          .then((json) => {
+            if (json.error) {
+              console.error(json.detail || json.error);
+              if (tbody) {
+                tbody.innerHTML =
+                  '<tr><td colspan="6" class="px-4 py-8 text-center text-[#C53030]">Error cargando datos. Revisa la configuración de la API de Facebook.</td></tr>';
+              }
+              return;
+            }
+
+            const mentions = json.mentions || [];
+            const pagination = json.pagination || {
+              page: 1,
+              total_pages: 1,
+              total_items: mentions.length,
+            };
+
+            renderSummary(
+              json.summary || {
+                total_mentions: 0,
+                positive: 0,
+                neutral: 0,
+                negative: 0,
+              }
+            );
+            renderTable(mentions, pagination);
+          })
+          .catch((err) => {
+            console.error(err);
+            if (tbody) {
+              tbody.innerHTML =
+                '<tr><td colspan="6" class="px-4 py-8 text-center text-[#C53030]">Error cargando datos. Revisa la configuración de la API de Facebook.</td></tr>';
+            }
+          });
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        // Filtros de sentimiento
+        document.querySelectorAll(".filter-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            setFilter(btn.dataset.filter);
+            currentPage = 1; // al cambiar filtro, arrancamos en la primera página
+            loadAndRender();
+          });
+        });
+
+        const networkSelect = document.getElementById("network-filter");
+        if (networkSelect) {
+          networkSelect.addEventListener("change", (e) => {
+            currentNetwork = e.target.value;
+            currentPage = 1;
+            loadAndRender();
+          });
+        }
+
+        // Búsqueda por texto
+        const searchInput = document.getElementById("search-input");
+        if (searchInput) {
+          searchInput.addEventListener("input", (e) => {
+            currentSearch = e.target.value.trim();
+            currentPage = 1;
+            loadAndRender();
+          });
+        }
+
+        // Orden por columnas
+        document.querySelectorAll("th[data-sort]").forEach((th) => {
+          th.addEventListener("click", () => {
+            const field = th.getAttribute("data-sort");
+            if (currentSortField === field) {
+              currentSortDirection =
+                currentSortDirection === "asc" ? "desc" : "asc";
+            } else {
+              currentSortField = field;
+              currentSortDirection = "asc";
+            }
+            currentPage = 1;
+            loadAndRender();
+          });
+        });
+
+        // Carga inicial
+        loadAndRender();
+      });
+    </script>
+  </body>
+</html>

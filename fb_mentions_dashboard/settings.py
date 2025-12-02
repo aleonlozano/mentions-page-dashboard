@@ -100,3 +100,8 @@ FB_PAGE_NAME = os.getenv("FB_PAGE_NAME", "Noticias del Meta")
 
 META_APP_ID = os.getenv("META_APP_ID")
 META_APP_SECRET = os.getenv("META_APP_SECRET")
+
+# Configuración X (antes Twitter)
+X_API_BASE = os.getenv("X_API_BASE", "https://api.x.com/2")
+X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN")
+X_USERNAME = os.getenv("X_USERNAME")

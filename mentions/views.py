@@ -7,7 +7,9 @@ import urllib.parse
 from django.shortcuts import render, redirect
 from datetime import datetime, timezone
 import math
+
 GRAPH_API_BASE = "https://graph.facebook.com/v21.0"
+X_API_BASE = getattr(settings, "X_API_BASE", "https://api.x.com/2")
 
 
 def _fetch_tagged_posts(limit=10):
@@ -77,6 +79,78 @@ def _fetch_instagram_tagged(limit=50):
 
     resp.raise_for_status()
     return data.get("data", [])
+
+
+# --- X (antes Twitter) ---
+def _fetch_x_mentions(limit=50, timeout=10):
+    """
+    Obtiene publicaciones de X (antes Twitter) que mencionan al usuario definido en X_USERNAME.
+    Usa el endpoint /2/tweets/search/recent con un query tipo '@usuario -is:retweet'.
+    """
+    bearer = getattr(settings, "X_BEARER_TOKEN", None)
+    username = getattr(settings, "X_USERNAME", None)
+    base_url = getattr(settings, "X_API_BASE", X_API_BASE)
+
+    if not bearer or not username:
+        # Si no hay configuración de X, devolvemos lista vacía y no rompemos el panel
+        return []
+
+    url = f"{base_url}/tweets/search/recent"
+
+    headers = {
+        "Authorization": f"Bearer {bearer}",
+    }
+
+    params = {
+        # menciones al usuario, sin retuits, en español
+        "query": f"@{username} -is:retweet lang:es",
+        "tweet.fields": "author_id,created_at,lang,public_metrics",
+        "expansions": "author_id",
+        "user.fields": "name,username",
+        "max_results": min(limit, 100),
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException:
+        # Aquí podrías loguear el error si quieres
+        return []
+
+    tweets = data.get("data", [])
+    users = {u["id"]: u for u in data.get("includes", {}).get("users", [])}
+
+    results = []
+    for t in tweets:
+        user = users.get(t.get("author_id", ""), {})
+        text = t.get("text") or ""
+        created_at = t.get("created_at")
+
+        sentiment = _analyze_sentiment(text)
+        impact = _compute_impact({
+            "message": text,
+            "created_time": created_at,
+        })
+
+        username_x = user.get("username")
+        permalink = None
+        if username_x:
+            permalink = f"https://x.com/{username_x}/status/{t['id']}"
+
+        results.append({
+            "id": t["id"],
+            "network": "x",
+            "from_name": user.get("name") or username_x or "Usuario X",
+            "from_id": user.get("id"),
+            "message": text,
+            "created_time": created_at,
+            "permalink_url": permalink,
+            "sentiment": sentiment,
+            "stats": impact,
+        })
+
+    return results
 
 def _analyze_sentiment(text):
     """
@@ -178,14 +252,14 @@ def mentions_api(request):
       - sort_dir: asc | desc
       - page: número de página (1-based)
       - page_size: tamaño de página (por defecto 10)
-      - network: all | facebook | instagram
+      - network: all | facebook | instagram | x
     """
-    # Filtro por red: all | facebook | instagram
+    # Filtro por red: all | facebook | instagram | x
     network_filter = request.GET.get("network", "all")
-    if network_filter not in ("all", "facebook", "instagram"):
+    if network_filter not in ("all", "facebook", "instagram", "x"):
         network_filter = "all"
 
-    # Obtener posts de Facebook e Instagram según el filtro de red
+    # Obtener posts de Facebook, Instagram y X según el filtro de red
     try:
         raw_sources = []
 
@@ -194,9 +268,12 @@ def mentions_api(request):
             raw_sources.extend([("facebook", p) for p in fb_posts])
 
         if network_filter in ("all", "instagram"):
-            ig_posts = _fetch_instagram_tagged(limit=39
-                                               )
+            ig_posts = _fetch_instagram_tagged(limit=39)
             raw_sources.extend([("instagram", p) for p in ig_posts])
+
+        if network_filter in ("all", "x"):
+            x_posts = _fetch_x_mentions(limit=39)
+            raw_sources.extend([("x", p) for p in x_posts])
 
     except ReadTimeout as e:
         return JsonResponse(
@@ -226,12 +303,26 @@ def mentions_api(request):
             from_obj = p.get("from") or {}
             from_name = from_obj.get("name", "")
             from_id = from_obj.get("id", "")
-        else:  # instagram
+        elif source == "instagram":
             message = p.get("caption")
             created_time = p.get("timestamp")
             permalink_url = p.get("permalink", "")
             from_name = p.get("username", "")
             from_id = ""
+        elif source == "x":
+            # La estructura de X ya viene normalizada desde _fetch_x_mentions
+            message = p.get("message")
+            created_time = p.get("created_time")
+            permalink_url = p.get("permalink_url", "")
+            from_name = p.get("from_name", "")
+            from_id = p.get("from_id", "")
+        else:
+            # Cualquier otra red futura
+            message = p.get("message")
+            created_time = p.get("created_time")
+            permalink_url = p.get("permalink_url", "")
+            from_name = p.get("from_name", "")
+            from_id = p.get("from_id", "")
 
         sentiment = _analyze_sentiment(message)
         stats = _compute_impact(
@@ -244,7 +335,7 @@ def mentions_api(request):
         mentions.append(
             {
                 "id": p.get("id"),
-                "network": source,  # "facebook" o "instagram"
+                "network": source,
                 "from_name": from_name,
                 "from_id": from_id,
                 "message": message,

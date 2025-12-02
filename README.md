@@ -1,4 +1,4 @@
-# Panel de monitoreo de menciones en Facebook (e Instagram)
+# Panel de monitoreo de menciones en Facebook, Instagram y X
 
 Este proyecto es un **panel web interactivo**, que permite monitorear en tiempo real las publicaciones de Facebook (y opcionalmente Instagram) que **mencionan o etiquetan** una página específica.
 
